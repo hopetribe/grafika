@@ -16,18 +16,20 @@
 
 package com.android.grafika.gles;
 
-import android.graphics.Bitmap;
-import android.opengl.EGL14;
-import android.opengl.EGLSurface;
-import android.opengl.GLES20;
-import android.util.Log;
-
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
+
+import android.graphics.Bitmap;
+import android.opengl.EGL14;
+import android.opengl.EGLSurface;
+import android.opengl.GLES30;
+import android.util.Log;
 
 /**
  * Common base class for EGL surfaces.
@@ -37,11 +39,14 @@ import java.nio.ByteOrder;
 public class EglSurfaceBase {
     protected static final String TAG = GlUtil.TAG;
 
-    // EglCore object we're associated with.  It may be associated with multiple surfaces.
+    // EglCore object we're associated with. It may be associated with multiple
+    // surfaces.
     protected EglCore mEglCore;
 
     private EGLSurface mEGLSurface = EGL14.EGL_NO_SURFACE;
+
     private int mWidth = -1;
+
     private int mHeight = -1;
 
     protected EglSurfaceBase(EglCore eglCore) {
@@ -51,6 +56,7 @@ public class EglSurfaceBase {
     /**
      * Creates a window surface.
      * <p>
+     * 
      * @param surface May be a Surface or SurfaceTexture.
      */
     public void createWindowSurface(Object surface) {
@@ -59,10 +65,11 @@ public class EglSurfaceBase {
         }
         mEGLSurface = mEglCore.createWindowSurface(surface);
 
-        // Don't cache width/height here, because the size of the underlying surface can change
+        // Don't cache width/height here, because the size of the underlying
+        // surface can change
         // out from under us (see e.g. HardwareScalerActivity).
-        //mWidth = mEglCore.querySurface(mEGLSurface, EGL14.EGL_WIDTH);
-        //mHeight = mEglCore.querySurface(mEGLSurface, EGL14.EGL_HEIGHT);
+        // mWidth = mEglCore.querySurface(mEGLSurface, EGL14.EGL_WIDTH);
+        // mHeight = mEglCore.querySurface(mEGLSurface, EGL14.EGL_HEIGHT);
     }
 
     /**
@@ -80,9 +87,10 @@ public class EglSurfaceBase {
     /**
      * Returns the surface's width, in pixels.
      * <p>
-     * If this is called on a window surface, and the underlying surface is in the process
-     * of changing size, we may not see the new size right away (e.g. in the "surfaceChanged"
-     * callback).  The size should match after the next buffer swap.
+     * If this is called on a window surface, and the underlying surface is in
+     * the process of changing size, we may not see the new size right away
+     * (e.g. in the "surfaceChanged" callback). The size should match after the
+     * next buffer swap.
      */
     public int getWidth() {
         if (mWidth < 0) {
@@ -120,16 +128,16 @@ public class EglSurfaceBase {
     }
 
     /**
-     * Makes our EGL context and surface current for drawing, using the supplied surface
-     * for reading.
+     * Makes our EGL context and surface current for drawing, using the supplied
+     * surface for reading.
      */
     public void makeCurrentReadFrom(EglSurfaceBase readSurface) {
         mEglCore.makeCurrent(mEGLSurface, readSurface.mEGLSurface);
     }
 
     /**
-     * Calls eglSwapBuffers.  Use this to "publish" the current frame.
-     *
+     * Calls eglSwapBuffers. Use this to "publish" the current frame.
+     * 
      * @return false on failure
      */
     public boolean swapBuffers() {
@@ -142,7 +150,7 @@ public class EglSurfaceBase {
 
     /**
      * Sends the presentation time stamp to EGL.
-     *
+     * 
      * @param nsecs Timestamp, in nanoseconds.
      */
     public void setPresentationTime(long nsecs) {
@@ -154,21 +162,103 @@ public class EglSurfaceBase {
      * <p>
      * Expects that this object's EGL surface is current.
      */
+    public void saveFrame(File file, ByteBuffer buf) throws IOException {
+        if (!mEglCore.isCurrent(mEGLSurface)) {
+            Log.i("ericczhuang", "!mEglCore.isCurrent(mEGLSurface)");
+            // throw new
+            // RuntimeException("Expected EGL context/surface is not current");
+        }
+
+        // glReadPixels fills in a "direct" ByteBuffer with what is essentially
+        // big-endian RGBA
+        // data (i.e. a byte of red, followed by a byte of green...). While the
+        // Bitmap
+        // constructor that takes an int[] wants little-endian ARGB (blue/red
+        // swapped), the
+        // Bitmap "copy pixels" method wants the same format GL provides.
+        //
+        // Ideally we'd have some way to re-use the ByteBuffer, especially if
+        // we're calling
+        // here often.
+        //
+        // Making this even more interesting is the upside-down nature of GL,
+        // which means
+        // our output will look upside down relative to what appears on screen
+        // if the
+        // typical GL conventions are used.
+
+        String filename = file.toString();
+
+        int width = getWidth();
+        int height = getHeight();
+        buf.rewind();
+
+        BufferedOutputStream bos = null;
+        try {
+            bos = new BufferedOutputStream(new FileOutputStream(filename));
+            // bos.write(buf.array());
+            // bos.flush();
+            Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            bmp.copyPixelsFromBuffer(buf);
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, bos);
+            bmp.recycle();
+        } finally {
+            if (bos != null)
+                bos.close();
+        }
+        Log.d(TAG, "Saved " + width + "x" + height + " frame as '" + filename + "'");
+    }
+
+    public void saveBuffer2File(File file, ByteBuffer buf) {
+        if (!mEglCore.isCurrent(mEGLSurface)) {
+            // throw new
+            // RuntimeException("Expected EGL context/surface is not current");
+        }
+
+        String filename = file.toString();
+
+        int width = getWidth();
+        int height = getHeight();
+        buf.rewind();
+        FileChannel wChannel;
+        try {
+            wChannel = new FileOutputStream(file, false).getChannel();
+            wChannel.write(buf);
+            wChannel.close();
+        } catch (FileNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } finally {
+            wChannel = null;
+        }
+
+        Log.d(TAG, "Saved " + width + "x" + height + " frame as '" + filename + "'");
+    }
+
     public void saveFrame(File file) throws IOException {
         if (!mEglCore.isCurrent(mEGLSurface)) {
             throw new RuntimeException("Expected EGL context/surface is not current");
         }
 
-        // glReadPixels fills in a "direct" ByteBuffer with what is essentially big-endian RGBA
-        // data (i.e. a byte of red, followed by a byte of green...).  While the Bitmap
-        // constructor that takes an int[] wants little-endian ARGB (blue/red swapped), the
+        // glReadPixels fills in a "direct" ByteBuffer with what is essentially
+        // big-endian RGBA
+        // data (i.e. a byte of red, followed by a byte of green...). While the
+        // Bitmap
+        // constructor that takes an int[] wants little-endian ARGB (blue/red
+        // swapped), the
         // Bitmap "copy pixels" method wants the same format GL provides.
         //
-        // Ideally we'd have some way to re-use the ByteBuffer, especially if we're calling
+        // Ideally we'd have some way to re-use the ByteBuffer, especially if
+        // we're calling
         // here often.
         //
-        // Making this even more interesting is the upside-down nature of GL, which means
-        // our output will look upside down relative to what appears on screen if the
+        // Making this even more interesting is the upside-down nature of GL,
+        // which means
+        // our output will look upside down relative to what appears on screen
+        // if the
         // typical GL conventions are used.
 
         String filename = file.toString();
@@ -177,8 +267,7 @@ public class EglSurfaceBase {
         int height = getHeight();
         ByteBuffer buf = ByteBuffer.allocateDirect(width * height * 4);
         buf.order(ByteOrder.LITTLE_ENDIAN);
-        GLES20.glReadPixels(0, 0, width, height,
-                GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buf);
+        GLES30.glReadPixels(0, 0, width, height, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, buf);
         GlUtil.checkGlError("glReadPixels");
         buf.rewind();
 
@@ -190,7 +279,8 @@ public class EglSurfaceBase {
             bmp.compress(Bitmap.CompressFormat.PNG, 90, bos);
             bmp.recycle();
         } finally {
-            if (bos != null) bos.close();
+            if (bos != null)
+                bos.close();
         }
         Log.d(TAG, "Saved " + width + "x" + height + " frame as '" + filename + "'");
     }
