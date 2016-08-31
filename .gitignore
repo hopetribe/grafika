@@ -1,13 +1,6 @@
-<<<<<<< HEAD
 .gitignore
 bin
 gen
 .classpath
 project.properties
 obj/
-
-=======
-.gitignore
-bin
-gen
->>>>>>> bf93170f4f065791e477a94e364c9e5e23cdcd67
