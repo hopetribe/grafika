@@ -1,4 +1,3 @@
-
 package com.android.grafika;
 
 import java.io.IOException;
