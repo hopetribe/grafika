@@ -1,19 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright 2013 Google Inc. All rights reserved.
-
-     Licensed under the Apache License, Version 2.0 (the "License");
-     you may not use this file except in compliance with the License.
-     You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
--->
-
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -23,15 +8,63 @@
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context=".ReadPixelsActivity" >
-    
-    <Button
-        android:id="@+id/gfxRunTest_button"
+
+    <CheckBox
+        android:id="@+id/pbo_check"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/gfxResultLabel_text"
         android:layout_alignParentTop="true"
-        android:text="@string/gfxRunTest_button"
-        android:onClick="clickRunGfxTest" />
+        android:checked="true"
+        android:text="Enable PBO" />
+
+    <TextView
+        android:id="@+id/tv_pbo_quantity"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/pbo_check"
+        android:layout_marginLeft="10dp"
+        android:layout_marginTop="12dp"
+        android:text="PBO数量:"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <EditText
+        android:id="@+id/et_pbo_quantity"
+        android:layout_width="100dp"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/tv_pbo_quantity"
+        android:layout_alignBottom="@+id/tv_pbo_quantity"
+        android:layout_toRightOf="@id/tv_pbo_quantity"
+        android:inputType="number"
+        android:text="2" />
+
+    <TextView
+        android:id="@+id/tv_cycles"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_pbo_quantity"
+        android:layout_marginLeft="10dp"
+        android:layout_marginTop="12dp"
+        android:text="循环次数:"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <EditText
+        android:id="@+id/et_cycles"
+        android:layout_width="100dp"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/tv_cycles"
+        android:layout_alignBottom="@+id/tv_cycles"
+        android:layout_below="@id/tv_pbo_quantity"
+        android:layout_toRightOf="@id/tv_cycles"
+        android:inputType="number"
+        android:text="100" />
+
+    <Button
+        android:id="@+id/gfxRunTest_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_cycles"
+        android:onClick="clickRunGfxTest"
+        android:text="@string/gfxRunTest_button" />
 
     <TextView
         android:id="@+id/gfxResultLabel_text"
@@ -43,7 +76,7 @@
         android:layout_marginTop="12dp"
         android:text="@string/gfxResultLabel_text"
         android:textAppearance="?android:attr/textAppearanceLarge" />
-    
+
     <TextView
         android:id="@+id/gfxResult_text"
         android:layout_width="wrap_content"
@@ -53,5 +86,11 @@
         android:layout_toRightOf="@+id/gfxResultLabel_text"
         android:text="@string/state_ready"
         android:textAppearance="?android:attr/textAppearanceLarge" />
-    
+
+    <ImageView
+        android:id="@+id/imv_result"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/gfxResult_text" />
+
 </RelativeLayout>

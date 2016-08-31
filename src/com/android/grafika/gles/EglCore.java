@@ -32,7 +32,7 @@ import android.view.Surface;
  * The EGLContext must only be attached to one thread at a time.  This class is not thread-safe.
  */
 public final class EglCore {
-    private static final String TAG = GlUtil.TAG;
+    private static final String TAG = GlUtil.TAG + ":ericczhuang";
 
     /**
      * Constructor flag: surface must be recordable.  This discourages EGL from using a
@@ -154,17 +154,18 @@ public final class EglCore {
                 EGL14.EGL_RED_SIZE, 8,
                 EGL14.EGL_GREEN_SIZE, 8,
                 EGL14.EGL_BLUE_SIZE, 8,
-                EGL14.EGL_ALPHA_SIZE, 8,
-                //EGL14.EGL_DEPTH_SIZE, 16,
-                //EGL14.EGL_STENCIL_SIZE, 8,
                 EGL14.EGL_RENDERABLE_TYPE, renderableType,
-                EGL14.EGL_NONE, 0,      // placeholder for recordable [@-3]
+                EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT | EGL14.EGL_WINDOW_BIT,
+                EGL14.EGL_NONE, 0,  
                 EGL14.EGL_NONE
         };
+        
         if ((flags & FLAG_RECORDABLE) != 0) {
             attribList[attribList.length - 3] = EGL_RECORDABLE_ANDROID;
             attribList[attribList.length - 2] = 1;
         }
+        
+        
         EGLConfig[] configs = new EGLConfig[1];
         int[] numConfigs = new int[1];
         if (!EGL14.eglChooseConfig(mEGLDisplay, attribList, 0, configs, 0, configs.length,
@@ -259,6 +260,7 @@ public final class EglCore {
         if (eglSurface == null) {
             throw new RuntimeException("surface was null");
         }
+        Log.i(TAG, "eglCreatePbufferSurface successfully.");
         return eglSurface;
     }
 
