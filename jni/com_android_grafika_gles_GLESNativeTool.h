@@ -12,9 +12,13 @@ extern "C" {
  * Method:    glReadPixelWithJni
  * Signature: (IIIIIII)V
  */
+typedef unsigned char BYTE;
+
 JNIEXPORT void JNICALL Java_com_android_grafika_gles_GLESNativeTool_glReadPixelWithJni
   (JNIEnv *, jobject, jint, jint, jint, jint, jint, jint, jint);
 
+JNIEXPORT void  JNICALL Java_com_android_grafika_gles_GLESNativeTool_convertByteBufferToByteArray
+  (JNIEnv *, jobject, jobject, jbyteArray);
 #ifdef __cplusplus
 }
 #endif

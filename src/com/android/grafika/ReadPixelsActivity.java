@@ -32,9 +32,9 @@ import com.android.grafika.gles.OffscreenSurface;
 public class ReadPixelsActivity extends Activity {
     private static final String TAG = ReadPixelsActivity.TAG + ":ericczhuang";
 
-    private static final int WIDTH = 1280;
+    private static final int WIDTH = 368;
 
-    private static final int HEIGHT = 720;
+    private static final int HEIGHT = 640;
 
     private static final int ITERATIONS = 100;
 
@@ -143,6 +143,9 @@ public class ReadPixelsActivity extends Activity {
         ByteBuffer mPixelBuffer;
 
         private int downloadNumber;
+        
+        GlPboReader mGlPboReader;
+        
 
         /**
          * Prepare for the glReadPixels test.
@@ -234,7 +237,10 @@ public class ReadPixelsActivity extends Activity {
             eglSurface.makeCurrent();
 
             Log.d(TAG, "Running...");
-            initPBO(mWidth, mHeight, mPBOQuantity);
+            if (GlPboReader.isPboSupport(getApplicationContext())) {
+				mGlPboReader = new GlPboReader(mWidth, mHeight);
+			}
+            //initPBO(mWidth, mHeight, mPBOQuantity);
             float colorMult = 1.0f / mIterations;
 
             for (int i = 0; i < mIterations; i++) {
@@ -263,8 +269,11 @@ public class ReadPixelsActivity extends Activity {
 
                 long startWhen = System.currentTimeMillis();
                 GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 4);
-                if (VERSION_GLES30) {
-                    downloadBufferWithPBO();
+                if (mGlPboReader != null) {
+                	mPixelBuffer = mGlPboReader.downloadGpuBufferWithPbo();
+                	showInImageView();
+                	//mGlPboReader.nextBuffer();
+                    //downloadBufferWithPBO();
                 } else {
                     mPixelBuffer.rewind();
                     GLES20.glReadPixels(0, 0, mWidth, mHeight, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, mPixelBuffer);
