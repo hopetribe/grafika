@@ -56,8 +56,8 @@ public class ContinuousCaptureActivity extends Activity implements SurfaceHolder
         SurfaceTexture.OnFrameAvailableListener {
     private static final String TAG = MainActivity.TAG;
 
-    private static final int VIDEO_WIDTH = 1280;  // dimensions for 720p video
-    private static final int VIDEO_HEIGHT = 720;
+    private static final int VIDEO_WIDTH = 208;  // dimensions for 720p video
+    private static final int VIDEO_HEIGHT = 144;
     private static final int DESIRED_PREVIEW_FPS = 15;
 
     private EglCore mEglCore;
@@ -400,10 +400,14 @@ public class ContinuousCaptureActivity extends Activity implements SurfaceHolder
         Log.d(TAG, "surfaceDestroyed holder=" + holder);
     }
 
+    long lastTime = 0;
     @Override   // SurfaceTexture.OnFrameAvailableListener; runs on arbitrary thread
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
         //Log.d(TAG, "frame available");
-        mHandler.sendEmptyMessage(MainHandler.MSG_FRAME_AVAILABLE);
+        //mHandler.sendEmptyMessage(MainHandler.MSG_FRAME_AVAILABLE);
+    	long now = System.currentTimeMillis();
+    	Log.i(TAG, "onFrameAvailable interval: " + (now - lastTime));
+    	lastTime = now;
     }
 
     /**

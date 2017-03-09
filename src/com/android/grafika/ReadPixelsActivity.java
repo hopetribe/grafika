@@ -3,12 +3,14 @@ package com.android.grafika;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Random;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.opengl.GLES10;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.os.AsyncTask;
@@ -32,16 +34,16 @@ import com.android.grafika.gles.OffscreenSurface;
 public class ReadPixelsActivity extends Activity {
     private static final String TAG = ReadPixelsActivity.TAG + ":ericczhuang";
 
-    private static final int WIDTH = 368;
+    private static final int WIDTH = 640;
 
-    private static final int HEIGHT = 640;
+    private static final int HEIGHT = 368;
 
     private static final int ITERATIONS = 100;
 
     private volatile boolean mIsCanceled;
 
     // only for debug, Added by Eric Huang
-    boolean VERSION_GLES30 = true;
+    boolean usePbo = true;
 
     private final static int DEFUALT_NUMBER_PBOS = 2;
 
@@ -103,7 +105,7 @@ public class ReadPixelsActivity extends Activity {
      */
     public void clickRunGfxTest(@SuppressWarnings("unused")
     View unused) {
-        VERSION_GLES30 = pboCheckBox.isChecked();
+        usePbo = pboCheckBox.isChecked();
 
         Resources res = getResources();
         String running = res.getString(R.string.state_running);
@@ -146,6 +148,7 @@ public class ReadPixelsActivity extends Activity {
         
         GlPboReader mGlPboReader;
         
+        final Bitmap bmp;
 
         /**
          * Prepare for the glReadPixels test.
@@ -160,7 +163,8 @@ public class ReadPixelsActivity extends Activity {
 
             mImageSize = width * height * 4;
 
-            mPixelBuffer = ByteBuffer.allocateDirect(mImageSize);
+            byte[] bufferBytes = new byte[mImageSize];
+            mPixelBuffer = ByteBuffer.wrap(bufferBytes);
             mPixelBuffer.order(ByteOrder.nativeOrder());
 
             pboIds = new int[mPBOQuantity];
@@ -169,6 +173,7 @@ public class ReadPixelsActivity extends Activity {
             // (ProgressBar)dialog.findViewById(R.id.work_progress);
             // mProgressBar.setMax(mIterations);
             downloadNumber = 0;
+            bmp = Bitmap.createBitmap(mWidth, mHeight, Bitmap.Config.ARGB_8888);
             // initPBO(mWidth, mHeight, NUMBER_PBOS);
         }
 
@@ -237,12 +242,12 @@ public class ReadPixelsActivity extends Activity {
             eglSurface.makeCurrent();
 
             Log.d(TAG, "Running...");
-            if (GlPboReader.isPboSupport(getApplicationContext())) {
+            if (usePbo && GlPboReader.isPboSupport(getApplicationContext())) {
 				mGlPboReader = new GlPboReader(mWidth, mHeight);
 			}
             //initPBO(mWidth, mHeight, mPBOQuantity);
             float colorMult = 1.0f / mIterations;
-
+            Random random = new Random();
             for (int i = 0; i < mIterations; i++) {
                 if (mIsCanceled) {
                     Log.d(TAG, "Canceled!");
@@ -252,9 +257,9 @@ public class ReadPixelsActivity extends Activity {
                 // if ((i % (mIterations / 8)) == 0) {
                 // publishProgress(i);
                 // }
-                float r = i * colorMult;
-                float g = 1.0f - r;
-                float b = (r + g) / 2.0f;
+                float r = random.nextInt() % 256;//i * colorMult;
+                float g = random.nextInt() % 256;//1.0f - r;
+                float b = random.nextInt() % 256;//(r + g) / 2.0f;
                 GLES20.glClearColor(r, g, b, 1.0f);
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
@@ -269,124 +274,41 @@ public class ReadPixelsActivity extends Activity {
 
                 long startWhen = System.currentTimeMillis();
                 GLES30.glPixelStorei(GLES30.GL_UNPACK_ALIGNMENT, 4);
-                if (mGlPboReader != null) {
+                if (usePbo && mGlPboReader != null) {
+                	Log.i(TAG, "downloadGpuBufferWithPbo");
                 	mPixelBuffer = mGlPboReader.downloadGpuBufferWithPbo();
-                	showInImageView();
-                	//mGlPboReader.nextBuffer();
-                    //downloadBufferWithPBO();
+                	//mGlPboReader.downloadGpuBufferWithPbo(mPixelBuffer);
                 } else {
                     mPixelBuffer.rewind();
-                    GLES20.glReadPixels(0, 0, mWidth, mHeight, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, mPixelBuffer);
-                    showInImageView();
+                    GLES10.glReadPixels(0, 0, mWidth, mHeight, GLES10.GL_RGBA, GLES10.GL_UNSIGNED_BYTE, mPixelBuffer);
                 }
-
                 if (DEBUG) {
-                    Log.i(TAG, "cost time = " + (System.currentTimeMillis() - startWhen));
+                	Log.i(TAG, "cost time = " + (System.currentTimeMillis() - startWhen));
                 }
                 totalTime += System.currentTimeMillis() - startWhen;
+                showInImageView();
+                //mPixelBuffer.rewind();
+
             }
             return totalTime;
         }
 
-        private void initPBO(int width, int height, int num) {
-            if (num <= 0) {
-                Log.e(TAG, "Invalid number of PBO, return.");
-                return;
-            }
-            GLES30.glGenBuffers(num, pboIds, 0);
-
-            for (int i = 0; i < num; i++) {
-                GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, pboIds[i]);
-                GLES30.glBufferData(GLES30.GL_PIXEL_PACK_BUFFER, mImageSize, null, GLES30.GL_STREAM_READ);
-            }
-
-            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
-
-        }
-
-        private void downloadBufferWithPBO() {
-            if (DEBUG) {
-                Log.i(TAG, "index = " + index + " download Number = " + downloadNumber + " pboIds[index] = "
-                        + pboIds[index]);
-            }
-            if (downloadNumber < mPBOQuantity) {
-                GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, pboIds[index]);
-                // GLES30.glReadPixels(0, 0, mWidth, mHeight, GLES30.GL_RGBA,
-                // GLES30.GL_UNSIGNED_BYTE, mTestBuffer);
-                GLESNativeTool.glReadPixelWithJni(0, 0, mWidth, mHeight, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, 0);
-                Log.i(TAG, String.format("downloadNumber < NUMBER_PBOS glReadPixels() with index = %d pbo: %d", index,
-                        pboIds[index]));
-            } else {
-                downloadBuffer();
-            }
-
-            index++;
-            index = index % mPBOQuantity;
-
-            downloadNumber++;
-            if (downloadNumber == Integer.MAX_VALUE) {
-                downloadNumber = mPBOQuantity;
-            }
-            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
-        }
-
-        private void downloadBuffer() {
-            // GLES30.glReadBuffer(GLES30.GL_FRONT);
-            // GLES30.glReadBuffer(GLES30.GL_COLOR_ATTACHMENT0);
-            // GLES30.glPixelStorei(GLES30.GL_PACK_ALIGNMENT, 4);
-
-            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, pboIds[index]);
-            mPixelBuffer.rewind();
-            mPixelBuffer = (ByteBuffer)GLES30.glMapBufferRange(GLES30.GL_PIXEL_PACK_BUFFER, 0, mImageSize,
-                    GLES30.GL_MAP_READ_BIT);
-
-            GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
-            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
-
-            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, pboIds[index]);
-            GLESNativeTool.glReadPixelWithJni(0, 0, mWidth, mHeight, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, 0);
-            // GLES30.glReadPixels(0, 0, mWidth, mHeight, GLES30.GL_RGBA,
-            // GLES30.GL_UNSIGNED_BYTE, mTestBuffer); // A1
-            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
-            if (null != mPixelBuffer) {
-                showInImageView();
-            } else {
-                Log.e(TAG, "mPixelBuffer is null.");
-            }
-        }
-
         private void showInImageView() {
-            final Bitmap bmp = Bitmap.createBitmap(mWidth, mHeight, Bitmap.Config.ARGB_8888);
-            mPixelBuffer.rewind();
+        	if (mPixelBuffer == null) {
+				return;
+			}
             bmp.copyPixelsFromBuffer(mPixelBuffer);
             imvResult.post(new Runnable() {
 
                 @Override
                 public void run() {
+                	Log.i(TAG, "showInImageView end position: ");
                     imvResult.setImageBitmap(bmp);
 
                 }
             });
         }
 
-        private ByteBuffer deepCopyVisible(ByteBuffer orig) {
-            int pos = orig.position();
-            try {
-                ByteBuffer toReturn;
-                // try to maintain implementation to keep performance
-                if (orig.isDirect())
-                    toReturn = ByteBuffer.allocateDirect(orig.remaining());
-                else
-                    toReturn = ByteBuffer.allocate(orig.remaining());
-
-                toReturn.put(orig);
-                toReturn.order(orig.order());
-
-                return (ByteBuffer)toReturn.position(0);
-            } finally {
-                orig.position(pos);
-            }
-        }
     }
 
 }

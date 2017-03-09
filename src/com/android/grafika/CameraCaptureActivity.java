@@ -353,6 +353,7 @@ public class CameraCaptureActivity extends Activity
         mCamera.startPreview();
     }
 
+    long lastTime = 0;
     @Override
     public void onFrameAvailable(SurfaceTexture st) {
         // The SurfaceTexture uses this to signal the availability of a new frame.  The
@@ -369,6 +370,9 @@ public class CameraCaptureActivity extends Activity
         // so it doesn't really matter.
         if (VERBOSE) Log.d(TAG, "ST onFrameAvailable");
         mGLView.requestRender();
+        long now = System.currentTimeMillis();
+    	Log.i(TAG, "onFrameAvailable interval: " + (now - lastTime));
+    	lastTime = now;
     }
 
     /**

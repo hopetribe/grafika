@@ -1,6 +1,7 @@
 package com.android.grafika;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.annotation.TargetApi;
@@ -33,11 +34,14 @@ public class GlPboReader {
 	private AtomicBoolean mIsInit = new AtomicBoolean(false);
 
 	private int mWidth, mHeight;
-
+	byte[] temp;
+	
 	public GlPboReader(int width, int height) {
 		mWidth = width;
 		mHeight = height;
 		mPboBufferSize = mWidth * height * 4;
+		temp = new byte[mPboBufferSize];
+
 		initPBO();
 	}
 
@@ -58,12 +62,48 @@ public class GlPboReader {
 		}
 
 		GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
+
 		mIsInit.set(true);
 	}
 
 	public ByteBuffer downloadGpuBufferWithPbo() {
 
-		ByteBuffer pb = ByteBuffer.allocate(mPboBufferSize);
+//		ByteBuffer pb = ByteBuffer.allocate(mPboBufferSize);
+		ByteBuffer pboBuffer = null;//ByteBuffer.wrap(temp);
+		mPboIndex = (mPboIndex + 1) % mPboNumember;
+
+		int nextPboIndex = (mPboIndex + 1) % mPboNumember;
+
+		if (mPboDownloadCount < mPboNumember) {
+			GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, mPboIds[mPboIndex]);
+			GLESNativeTool.glReadPixelWithJni(0, 0, mWidth, mHeight, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, 0);
+		} else {
+			GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, mPboIds[mPboIndex]);
+
+			GLESNativeTool.glReadPixelWithJni(0, 0, mWidth, mHeight, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, 0);
+
+			//			GLES30.glReadPixels(0, 0, mWidth, mHeight, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, pb); // read pixels
+
+			GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, mPboIds[nextPboIndex]);
+
+			pboBuffer = ByteBuffer.wrap(temp);
+			//pb = (ByteBuffer) GLES30.glMapBufferRange(GLES30.GL_PIXEL_PACK_BUFFER, 0, mPboBufferSize, GLES30.GL_MAP_READ_BIT);
+			pboBuffer = ((ByteBuffer) GLES30.glMapBufferRange(GLES30.GL_PIXEL_PACK_BUFFER, 0, mPboBufferSize, GLES30.GL_MAP_READ_BIT)).order(ByteOrder.nativeOrder());
+
+			GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
+			GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
+
+		}
+		mPboDownloadCount++;
+		if (mPboDownloadCount == Integer.MAX_VALUE) {
+			mPboDownloadCount = mPboNumember;
+		}
+		GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
+		return pb;
+	}
+	
+	public void downloadGpuBufferWithPbo(ByteBuffer buffer) {
+
 		mPboIndex = (mPboIndex + 1) % mPboNumember;
 
 		int nextPboIndex = (mPboIndex + 1) % mPboNumember;
@@ -77,7 +117,7 @@ public class GlPboReader {
 			GLESNativeTool.glReadPixelWithJni(0, 0, mWidth, mHeight, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, 0);
 			GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, mPboIds[nextPboIndex]);
 
-			pb = (ByteBuffer) GLES30.glMapBufferRange(GLES30.GL_PIXEL_PACK_BUFFER, 0, mPboBufferSize, GLES30.GL_MAP_READ_BIT);
+			buffer = ((ByteBuffer) GLES30.glMapBufferRange(GLES30.GL_PIXEL_PACK_BUFFER, 0, mPboBufferSize, GLES30.GL_MAP_READ_BIT)).order(ByteOrder.nativeOrder());
 
 			GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
 			GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
@@ -88,7 +128,6 @@ public class GlPboReader {
 			mPboDownloadCount = mPboNumember;
 		}
 		GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0);
-		return pb;
 	}
 
 }
